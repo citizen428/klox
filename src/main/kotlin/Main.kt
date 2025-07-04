@@ -3,9 +3,16 @@ package net.citizen428.klox
 import java.io.File
 import kotlin.system.exitProcess
 
+enum class ExitCodes(val value: Int) {
+    ArgumentError(64),
+    ParseError(65),
+    RuntimeError(70)
+}
 
 object Lox {
+    private val interpreter = Interpreter()
     var hadError = false
+    var hadRuntimeError = false
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -14,7 +21,7 @@ object Lox {
             1 -> runFile(args[0])
             else -> {
                 println("Usage: jlox [script]")
-                exitProcess(64)
+                exitProcess(ExitCodes.ArgumentError.value)
             }
         }
     }
@@ -26,9 +33,15 @@ object Lox {
         report(token.line, where, message)
     }
 
+    fun runtimeError(error: RuntimeError) {
+        System.err.println("${error.message}\n[line ${error.token?.line}]\n")
+        hadRuntimeError = true
+    }
+
     private fun runFile(path: String) {
         run(File(path).readText())
-        if (hadError) exitProcess(65)
+        if (hadError) exitProcess(ExitCodes.ParseError.value)
+        if (hadRuntimeError) exitProcess(ExitCodes.RuntimeError.value)
     }
 
     private fun runPrompt() {
@@ -36,8 +49,11 @@ object Lox {
             print("> ")
             val line = readlnOrNull()
             if (line == null) break
+            if (line.isEmpty()) continue
+
             run(line)
             hadError = false
+            hadRuntimeError = false
         }
     }
 
@@ -45,9 +61,7 @@ object Lox {
         val ast = Parser.parseString(source)
         if (hadError) return
 
-        ast
-            .onSuccess { println(it.print()) }
-            .onFailure { println(it) }
+        interpreter.interpret(ast)
     }
 
     private fun report(line: Int, where: String = "", message: String = "") {

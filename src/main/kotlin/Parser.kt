@@ -7,14 +7,18 @@ class Parser(val tokens: List<Token>) {
 
     private var current = 0
 
-    fun parse(): Result<Expr> = runCatching { expression() }
+    fun parse(): Expr? = try {
+        expression()
+    } catch (_: ParseError) {
+        null
+    }
 
     private fun expression(): Expr = equality()
 
     private fun equality(): Expr {
         var expr = comparison()
 
-        while (match(BANG_EQUAL, BANG_EQUAL))
+        while (match(BANG_EQUAL, EQUAL_EQUAL))
             expr = Expr.Binary(left = expr, operator = previous(), right = comparison())
 
         return expr
@@ -118,7 +122,7 @@ class Parser(val tokens: List<Token>) {
     }
 
     companion object {
-        fun parseString(source: String): Result<Expr> =
+        fun parseString(source: String): Expr? =
             Scanner(source)
                 .scanTokens()
                 .let { tokens -> Parser(tokens) }
